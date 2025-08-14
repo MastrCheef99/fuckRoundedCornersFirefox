@@ -1,5 +1,17 @@
 {
   "version": { "license": "GPL-3.0-only" },
   "categories": { "firefox": ["appearance"] },
-  "requires_payment": false
+  "requires_payment": false,
+  "default_locale": "en-US",
+    "description": {
+        "en-US": "Allows you to change the way websites round corners. I use it to make all of my corners sharp."
+    },
+    "homepage": {
+        "en-US": "https://github.com/MastrCheef99/fuckRoundedCornersFirefox"
+    },
+    "name": {
+        "en-US": "Fuck Rounded Corners"
+    },
+    "slug": "fuck-rounded-corners",
+    "is_disabled": false
 }
