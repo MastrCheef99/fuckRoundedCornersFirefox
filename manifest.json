@@ -22,7 +22,7 @@
     },
     "browser_specific_settings": {
       "gecko": {
-        "id": "fuckroundedcorners@example.com",
+        "id": "{BCD48F10-DCE0-4413-9781-955B10F261A4}",
         "strict_min_version": "109.0"
       }
     }
