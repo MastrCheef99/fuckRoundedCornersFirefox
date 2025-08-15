@@ -1,15 +1,15 @@
-// === Corner Unrounding — optimized, YouTube-safe ===
+// === Corner Unrounding — hybrid version between upstream and fork ===
 
-// Defaults
+// Defaults / user settings
 var userSettings = {
-    mode: "1",
-    roundAmount: 0,
-    ratioAmount: 0,
-    minRounding: 0,
-    maxRounding: 0,
-    editAll: false,
-    excludeClasses: [],
-    excludeIds: []
+    mode: "1",          // 1: absolute, 2: ratio, 3: clamp
+    roundAmount: 0,     // px for mode 1
+    ratioAmount: 0,     // fraction for mode 2
+    minRounding: 0,     // min radius for mode 2/3
+    maxRounding: 0,     // max radius for mode 2/3
+    editAll: false,     // force all elements
+    excludeClasses: [], // classes to skip
+    excludeIds: []      // ids to skip
 };
 
 // Cross-browser storage API
@@ -17,40 +17,50 @@ const storage = (typeof browser !== "undefined" && browser.storage) ? browser.st
 const runtime = (typeof browser !== "undefined" && browser.runtime) ? browser.runtime : chrome.runtime;
 
 // Caches / trackers
-const lastAppliedRadius = new WeakMap();   // element -> last radius we set (string like "8px")
+const lastAppliedRadius = new WeakMap();   // element -> last radius we set
 const watchedElements   = new WeakSet();   // elements we attached observers to (attr + resize)
-
-// Batched processing queue
-let pending = new Set();
+let pendingElements = new Set();
 let flushScheduled = false;
-const scheduleFlush = () => {
+let pendingReload = false;
+
+// ------------------- Queue & batching -------------------
+function scheduleFlush() {
     if (flushScheduled) return;
     flushScheduled = true;
-    const runner = () => { flushScheduled = false; const list = Array.from(pending); pending.clear(); fixRounds(list); };
-    // Prefer idle when available
+    const runner = () => {
+        flushScheduled = false;
+        const list = Array.from(pendingElements);
+        pendingElements.clear();
+        fixRounds(list);
+    };
     if (typeof requestIdleCallback === "function") requestIdleCallback(runner, { timeout: 100 });
     else setTimeout(runner, 50);
-};
-const queueElements = (els) => { for (const el of els) if (el && el.nodeType === 1) pending.add(el); scheduleFlush(); };
+}
 
-// Load settings & initial pass
-storage.sync.get(null).then((data) => {
+function queueElements(elements) {
+    for (const el of elements) if (el && el.nodeType === 1) pendingElements.add(el);
+    scheduleFlush();
+}
+
+// ------------------- Settings load & reload -------------------
+storage.sync.get(null).then(data => {
     if (data != null) userSettings = data;
-    // Initial sweep
     queueElements(document.querySelectorAll('*'));
 });
 
-// Reload on settings change
-(ifStorageOnChanged => {
-    if (ifStorageOnChanged) {
-        ifStorageOnChanged.addListener(() => document.location.reload());
-    }
-})((storage && storage.onChanged) ? storage.onChanged : (chrome.storage && chrome.storage.onChanged));
+(storage.onChanged || chrome.storage.onChanged).addListener(() => {
+    pendingReload = true;
+});
 
-// Reload on runtime message
-runtime.onMessage.addListener((message) => { if (message.action === 'reloadPage') window.location.reload(); });
+window.addEventListener('focus', () => {
+    if (pendingReload) location.reload();
+});
 
-// Exclusion helpers
+runtime.onMessage.addListener(msg => {
+    if (msg.action === 'reloadPage') pendingReload = true;
+});
+
+// ------------------- Helpers -------------------
 function shouldExclude(element) {
     if (userSettings.excludeClasses && Array.isArray(userSettings.excludeClasses)) {
         for (const cls of userSettings.excludeClasses) {
@@ -63,121 +73,121 @@ function shouldExclude(element) {
     return false;
 }
 
-// Per-element observers (attribute + resize) — attach ONLY to candidates
-const attrObserver = new MutationObserver((records) => {
+function applyRadius(element, desired) {
+    element.style.setProperty('border-radius', desired, 'important'); // upstream: override !important
+    lastAppliedRadius.set(element, desired);
+}
+
+// ------------------- Core rounding -------------------
+function computeNewRadius(element, style, currentBorderRadius) {
+    const rect = element.getBoundingClientRect();
+    const width  = rect.width  || parseFloat(style.getPropertyValue("width"))  || 0;
+    const height = rect.height || parseFloat(style.getPropertyValue("height")) || 0;
+    const shortestSide = Math.min(width, height);
+
+    // Ratio mode: wait for element to render
+    if ((shortestSide === 0 || style.getPropertyValue("display") === "none") && userSettings.mode === "2") {
+        ensureWatching(element);
+        return null;
+    }
+
+    let newRadius = null;
+    const numericCurrent = parseFloat(currentBorderRadius) || 0;
+
+    switch(userSettings.mode) {
+        case "1":
+            newRadius = userSettings.roundAmount + "px";
+            break;
+        case "2":
+            if (userSettings.ratioAmount !== null && shortestSide > 0) {
+                let r = shortestSide * userSettings.ratioAmount;
+                if (r < userSettings.minRounding) r = userSettings.minRounding;
+                else if (userSettings.maxRounding !== 0 && r > userSettings.maxRounding) r = userSettings.maxRounding;
+                newRadius = r + "px";
+            }
+            break;
+        case "3":
+            if (numericCurrent < userSettings.minRounding) newRadius = userSettings.minRounding + "px";
+            else if (userSettings.maxRounding !== 0 && numericCurrent > userSettings.maxRounding) newRadius = userSettings.maxRounding + "px";
+            break;
+    }
+
+    return newRadius;
+}
+
+function fixRounds(elements) {
+    elements.forEach(element => {
+        if (!element || element.nodeType !== 1 || shouldExclude(element)) return;
+
+        const style = window.getComputedStyle(element);
+        const currentBorderRadius = style.getPropertyValue("border-radius");
+
+        const isCandidate = (currentBorderRadius && currentBorderRadius !== "0px") || userSettings.editAll;
+        if (!isCandidate) return;
+
+        const desired = computeNewRadius(element, style, currentBorderRadius);
+        if (!desired) return;
+
+        if (lastAppliedRadius.get(element) === desired && element.style.borderRadius === desired) return;
+
+        applyRadius(element, desired);
+        ensureWatching(element);
+    });
+}
+
+// ------------------- Observers -------------------
+const attrObserver = new MutationObserver(records => {
     const changed = new Set();
     for (const r of records) {
-        if (r.type === "attributes" && r.target && r.target.nodeType === 1) {
-            changed.add(r.target);
+        if (r.type === "attributes" && r.target) changed.add(r.target);
+        else if (r.type === "childList" && r.addedNodes.length) {
+            for (const n of r.addedNodes) {
+                if (n.nodeType === 1) {
+                    changed.add(n);
+                    const descendants = n.querySelectorAll ? n.querySelectorAll('*') : [];
+                    descendants.forEach(d => changed.add(d));
+                }
+            }
         }
     }
     if (changed.size) queueElements(changed);
 });
 
-// One ResizeObserver for all watched elements
-const resizeObserver = new ResizeObserver((entries) => {
+const resizeObserver = new ResizeObserver(entries => {
     const changed = new Set();
-    for (const e of entries) {
-        if (e && e.target) changed.add(e.target);
-    }
+    for (const e of entries) if (e && e.target) changed.add(e.target);
     if (changed.size) queueElements(changed);
 });
 
 function ensureWatching(element) {
     if (watchedElements.has(element)) return;
     watchedElements.add(element);
+
     try {
-        // Watch minimal attribute set that impacts rounding/visibility
-        attrObserver.observe(element, { attributes: true, attributeFilter: ['style', 'class', 'src'] });
+        attrObserver.observe(element, { attributes: true, attributeFilter: ['style','class','src'] });
     } catch (_) {}
     try {
         resizeObserver.observe(element);
     } catch (_) {}
 
-    // Shadow DOM: start discovery inside once
     if (element.shadowRoot && !element.shadowRoot.__cu_observed) {
         element.shadowRoot.__cu_observed = true;
         observeChildList(element.shadowRoot);
-        // kick an initial pass inside the shadow root
         queueElements(element.shadowRoot.querySelectorAll('*'));
     }
 }
 
-// Core rounding
-function computeNewRadius(element, style, currentBorderRadius) {
-    let newRadius = null;
-
-    // Width/height: prefer fast geometry; fall back to computed values
-    const rect = element.getBoundingClientRect();
-    let width  = rect.width  || parseFloat(style.getPropertyValue("width"))  || 0;
-    let height = rect.height || parseFloat(style.getPropertyValue("height")) || 0;
-    const shortestSide = Math.min(width, height);
-
-    if (userSettings.mode === "1") {
-        newRadius = userSettings.roundAmount + "px";
-    } else if (userSettings.mode === "2") {
-        // Ratio mode: if we don't have dimensions yet, wait for ResizeObserver
-        if (userSettings.ratioAmount !== null && shortestSide > 0) {
-            let r = shortestSide * userSettings.ratioAmount;
-            if (r < userSettings.minRounding) r = userSettings.minRounding;
-            else if (userSettings.maxRounding !== 0 && r > userSettings.maxRounding) r = userSettings.maxRounding;
-            newRadius = r + "px";
-        }
-    } else if (userSettings.mode === "3") {
-        const numericRadius = parseFloat(currentBorderRadius) || 0;
-        if (numericRadius < userSettings.minRounding) {
-            newRadius = userSettings.minRounding + "px";
-        } else if (userSettings.maxRounding !== 0 && numericRadius > userSettings.maxRounding) {
-            newRadius = userSettings.maxRounding + "px";
-        }
-    }
-
-    return newRadius;
-}
-
-function fixRounds(elementList) {
-    elementList.forEach((element) => {
-        if (!element || element.nodeType !== 1) return;
-        if (shouldExclude(element)) return;
-
-        const style = window.getComputedStyle(element);
-        const currentBorderRadius = style.getPropertyValue("border-radius");
-
-        // Candidate if it has rounding or we're set to edit all
-        const isCandidate = (currentBorderRadius && currentBorderRadius !== "0px") || userSettings.editAll;
-        if (!isCandidate) return;
-
-        // Attach lightweight watchers so we respond when this element actually changes
-        ensureWatching(element);
-
-        // Compute desired radius
-        const desired = computeNewRadius(element, style, currentBorderRadius);
-
-        // If ratio mode and we don't have size yet, skip for now — resize observer will retry
-        if (!desired) return;
-
-        // Skip if already at desired radius (cheap, avoids redundant style writes)
-        if (lastAppliedRadius.get(element) === desired && element.style.borderRadius === desired) return;
-
-        if (currentBorderRadius !== desired) {
-            element.style.borderRadius = desired;
-            lastAppliedRadius.set(element, desired);
-        }
-    });
-}
-
-// ChildList-only observer to discover new nodes (cheap)
+// ------------------- ChildList observer -------------------
 function observeChildList(root) {
-    const mo = new MutationObserver((mutations) => {
+    const mo = new MutationObserver(mutations => {
         const toProcess = new Set();
         for (const m of mutations) {
             if (m.type === 'childList' && m.addedNodes.length) {
                 for (const n of m.addedNodes) {
                     if (n.nodeType === 1) {
                         toProcess.add(n);
-                        // Collect descendants without an extra pass later
                         const descendants = n.querySelectorAll ? n.querySelectorAll('*') : [];
-                        for (const d of descendants) toProcess.add(d);
+                        descendants.forEach(d => toProcess.add(d));
                     }
                 }
             }
@@ -187,5 +197,5 @@ function observeChildList(root) {
     mo.observe(root, { childList: true, subtree: true });
 }
 
-// Start observing the main document
+// ------------------- Start observing -------------------
 observeChildList(document);

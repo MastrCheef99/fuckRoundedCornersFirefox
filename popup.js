@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
   // Custom dropdown logic
   const dropdown = document.getElementById('customDropdown');
   const selected = document.getElementById('dropdownSelected');
@@ -28,35 +28,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
   //defaults
   var userSettings = {
-      mode: "1",
-      roundAmount: 0,
-      ratioAmount: 0,
-      minRounding: 0,
-      maxRounding: 0,
-      editAll: false,
-      excludeClasses: [],
-      excludeIds: []
+    mode: "1",
+    roundAmount: 0,
+    ratioAmount: 0,
+    minRounding: 0,
+    maxRounding: 0,
+    editAll: false,
+    excludeClasses: [],
+    excludeIds: []
   };
 
   // Cross-browser storage API
   const storage = (typeof browser !== "undefined" && browser.storage) ? browser.storage : chrome.storage;
 
   storage.sync.get(null).then((data) => {
-      if(data != null){
-        console.log("settings loaded");
-        userSettings = data;
-      }
-      makeInputs(userSettings.mode, userSettings);
+    if (data != null) {
+      console.log("settings loaded");
+      userSettings = data;
+    }
+    makeInputs(userSettings.mode, userSettings);
 
-      // Set custom dropdown to correct value on load
-      const modeValue = userSettings.mode || "1";
-      document.getElementById('mode').value = modeValue;
-      const dropdownOptions = document.querySelectorAll('.custom-dropdown-option');
-      dropdownOptions.forEach(opt => {
-        if (opt.getAttribute('data-value') === modeValue) {
-          document.getElementById('dropdownSelected').textContent = opt.textContent;
-        }
-      });
+    // Set custom dropdown to correct value on load
+    const modeValue = userSettings.mode || "1";
+    document.getElementById('mode').value = modeValue;
+    const dropdownOptions = document.querySelectorAll('.custom-dropdown-option');
+    dropdownOptions.forEach(opt => {
+      if (opt.getAttribute('data-value') === modeValue) {
+        document.getElementById('dropdownSelected').textContent = opt.textContent;
+      }
+    });
   });
 
 
@@ -81,8 +81,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     //save the settings to storage
     storage.sync.set(userSettings).then(() => {
-      console.log(userSettings);
-      console.log('Settings saved');
+      //notify user of success
+      document.getElementById('saveStatus').style.display = 'inline';
+        setTimeout(() => {
+          document.getElementById('saveStatus').style.display = 'none';
+        }, 1200);
     });
   });
 
@@ -93,32 +96,38 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   function makeInputs(mode) {
-    document.getElementById('mode').value = mode;
-    document.getElementById('editAll').checked = userSettings.editAll;
+    document.getElementById('mode').value = mode; // Set the mode in the dropdown
+    document.getElementById('editAll').checked = userSettings.editAll; // Set the editAll checkbox state
     var inputs = document.getElementById('inputs');
     inputs.innerHTML = ""; // Clear previous inputs
+    //round all corners the same amount
     if (mode === "1") {
-      // Label and input for round amount
-      const roundLabel = document.createElement('label');
-      roundLabel.htmlFor = 'roundAmount';
-      roundLabel.textContent = 'Round amount (in px):';
-      roundLabel.className = 'input-label';
+      // create label for radius input
+      const riLabel = document.createElement('label');
+      riLabel.htmlFor = 'roundAmount';
+      riLabel.textContent = 'Corner Radius: ';
+      riLabel.classNaame = 'input-label';
+      // Create input for radius
       const roundInput = document.createElement('input');
       roundInput.type = 'number';
       roundInput.id = 'roundAmount';
       roundInput.value = userSettings.roundAmount;
-      inputs.appendChild(roundLabel);
+
+      inputs.appendChild(riLabel);
       inputs.appendChild(roundInput);
     } else if (mode === "2") {
-      // Ratio
+      //round all corners using a ratio relative to the shortest side
+      // Create label for ratio input
       const ratioLabel = document.createElement('label');
       ratioLabel.htmlFor = 'ratioAmount';
-      ratioLabel.textContent = 'Ratio (e.g., 0.1 for 10% of shortest side):';
+      ratioLabel.textContent = 'Enter ratio (e.g., 0.1 for 10%): ';
       ratioLabel.className = 'input-label';
+      // Create input for ratio
       const ratioInput = document.createElement('input');
       ratioInput.type = 'number';
       ratioInput.id = 'ratioAmount';
-      ratioInput.value = userSettings.ratioAmount;
+      ratioInput.value = userSettings.ratioAmount; // Set default value if exists
+
       // Max
       const maxLabel = document.createElement('label');
       maxLabel.htmlFor = 'maxRounding';
@@ -137,7 +146,7 @@ document.addEventListener('DOMContentLoaded', function() {
       min.type = 'number';
       min.id = 'minRounding';
       min.value = userSettings.minRounding;
-      // Append all
+
       inputs.appendChild(ratioLabel);
       inputs.appendChild(ratioInput);
       inputs.appendChild(maxLabel);
@@ -145,6 +154,7 @@ document.addEventListener('DOMContentLoaded', function() {
       inputs.appendChild(minLabel);
       inputs.appendChild(min);
     } else if (mode === "3") {
+      //round all corners by applying a min and max to the existing rounding
       // Max
       const maxLabel = document.createElement('label');
       maxLabel.htmlFor = 'maxRounding';
@@ -163,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function() {
       min.type = 'number';
       min.id = 'minRounding';
       min.value = userSettings.minRounding;
-      // Append all
+
       inputs.appendChild(maxLabel);
       inputs.appendChild(max);
       inputs.appendChild(minLabel);

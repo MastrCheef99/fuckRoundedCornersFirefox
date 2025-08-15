@@ -1,5 +1,8 @@
 # Fuck Rounded Corners
 
+![Screenshot of the upstream Fuck Rounded Corners GitHub repo with sharp corners](/example.png)
+
+
 ## About:
 My friend (me, the guy who forked it) hates rounded corners so this extension lets you change that
 Forked from my friend [bluer222](https://github.com/bluer222/fuckRoundedCorners/releases/latest)
@@ -13,7 +16,7 @@ Forked from my friend [bluer222](https://github.com/bluer222/fuckRoundedCorners/
 
 ### On firefox
 Addons store coming soon
-[UNSIGNED XPI FILE HERE](https://github.com/MastrCheef99/fuckRoundedCornersFirefox/releases/latest
+[UNSIGNED XPI FILE HERE](https://github.com/MastrCheef99/fuckRoundedCornersFirefox/releases/latest)
 
 From unsigned XPI file (not sure what the hell is wrong with it)
 1. Go to about:config
