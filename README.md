@@ -12,8 +12,17 @@ Forked from my friend [bluer222](https://github.com/bluer222/fuckRoundedCorners/
 4. Load the folder using the "load unpacked" button at the top left
 
 ### On firefox
-Addons store and signed xpi coming soon
-For now
+Addons store coming soon
+[SIGNED XPI FILE HERE](https://github.com/MastrCheef99/fuckRoundedCornersFirefox/releases/latest
+
+From Signed XPI file
+1. [Download the .xpi file](https://github.com/MastrCheef99/fuckRoundedCornersFirefox/releases/latest
+2. Go to [about:addons](about:addons)
+3. Click the gear icon
+4. Hit install add-on from file (3rd option from the top)
+5. Select the xpi file
+
+From Source (Not Recommended)
 1. Download the repository [here](https://github.com/MastrCheef99/fuckRoundedCornersFirefox/archive/refs/heads/main.zip)
 2. Extract the zip
 3. Go to about:debugging
