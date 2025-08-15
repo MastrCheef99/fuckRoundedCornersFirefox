@@ -13,14 +13,16 @@ Forked from my friend [bluer222](https://github.com/bluer222/fuckRoundedCorners/
 
 ### On firefox
 Addons store coming soon
-[SIGNED XPI FILE HERE](https://github.com/MastrCheef99/fuckRoundedCornersFirefox/releases/latest
+[UNSIGNED XPI FILE HERE](https://github.com/MastrCheef99/fuckRoundedCornersFirefox/releases/latest
 
-From Signed XPI file
-1. [Download the .xpi file](https://github.com/MastrCheef99/fuckRoundedCornersFirefox/releases/latest
-2. Go to [about:addons](about:addons)
-3. Click the gear icon
-4. Hit install add-on from file (3rd option from the top)
-5. Select the xpi file
+From unsigned XPI file (not sure what the hell is wrong with it)
+1. Go to about:config
+2. Set xpinstall.signatures.required to false (should be safe, why are you installing from an xpi but care if it's signed?)
+3. [Download the .xpi file](https://github.com/MastrCheef99/fuckRoundedCornersFirefox/releases/latest
+4. Go to [about:addons](about:addons)
+5. Click the gear icon
+6. Hit install add-on from file (3rd option from the top)
+7. Select the xpi file
 
 From Source (Not Recommended)
 1. Download the repository [here](https://github.com/MastrCheef99/fuckRoundedCornersFirefox/archive/refs/heads/main.zip)
